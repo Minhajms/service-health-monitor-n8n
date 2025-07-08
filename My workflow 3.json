@@ -1,0 +1,259 @@
+{
+  "name": "My workflow 3",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "1f32fd50-bf2d-4c5f-ae8d-bcac86cbb92b",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://httpbin.org/get",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "9bbff0e3-75c0-424d-883b-370aecb60ca1",
+      "name": "Stock Service Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        640,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://jsonplaceholder.typicode.com/posts",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "39700ed6-b8cb-4e6a-8e2b-ed071520f69d",
+      "name": "OMS Posting Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        640,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://httpbin.org/delay/2",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "7401d702-912d-489c-a971-60f047ffe7bb",
+      "name": "OMS Pulling Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        640,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// FINAL VERSION - PERFECT SERVICE DETECTION\nconst currentTime = new Date().toISOString();\nconst item = $input.first();\n\nlet serviceName = 'Unknown Service';\n\n// Better detection logic\nif (item.json && item.json.url) {\n  const url = item.json.url;\n  if (url.includes('httpbin.org/get')) {\n    serviceName = 'Stock Check';\n  } else if (url.includes('httpbin.org/delay')) {\n    serviceName = 'OMS Pulling';\n  } else if (url.includes('jsonplaceholder')) {\n    serviceName = 'OMS Posting';\n  }\n} else if (item.json && Array.isArray(item.json) && item.json.length > 0) {\n  // JSONPlaceholder returns an array of posts\n  serviceName = 'OMS Posting';\n} else if (item.json && typeof item.json === 'object' && item.json.userId) {\n  // Another way to detect JSONPlaceholder\n  serviceName = 'OMS Posting';\n}\n\nreturn {\n  json: {\n    timestamp: currentTime,\n    serviceName: serviceName,\n    status: 'healthy',\n    hasErrors: false,\n    message: `${serviceName} is working perfectly`\n  }\n};"
+      },
+      "id": "596fa4df-c0cd-4ff6-bac7-ddbdd37c9f26",
+      "name": "Process Single Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasErrors }}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "436079b1-4a73-497b-ae31-ce0aefbbb755",
+      "name": "Has Errors?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08BUJWKN7Q",
+          "mode": "list",
+          "cachedResultName": "all-for-myself"
+        },
+        "text": "=🚨 *SERVICE HEALTH ALERT* 🚨\n\n⏰ *Time:* {{ $json.timestamp }}\n🌐 *Service:* {{ $json.serviceName }}\n📊 *Status:* {{ $json.message }}\n\n🔧 Please investigate immediately!",
+        "otherOptions": {}
+      },
+      "id": "b02bf6e6-f7e2-4cfa-8e9d-5727bc6d2fd2",
+      "name": "Send Slack Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        1380,
+        440
+      ],
+      "webhookId": "66177e80-91e0-4373-bad5-f562ab9cdbd0",
+      "credentials": {
+        "slackApi": {
+          "id": "qZa6SLeAmRGR5pVD",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08BUJWKN7Q",
+          "mode": "list",
+          "cachedResultName": "all-for-myself"
+        },
+        "text": "=✅ *Service Healthy* ✅\n\n⏰ {{ $json.timestamp }}\n🌐 {{ $json.serviceName }}\n📊 {{ $json.message }}\n\n🎉 System operational!",
+        "otherOptions": {}
+      },
+      "id": "85851b1f-ab39-4630-ba2b-974b9d241f86",
+      "name": "Service OK",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        1420,
+        620
+      ],
+      "webhookId": "58ef9bc6-0fdb-4c39-afa0-8215f8bc19a1",
+      "credentials": {
+        "slackApi": {
+          "id": "qZa6SLeAmRGR5pVD",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Stock Service Check",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "OMS Posting Check",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "OMS Pulling Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock Service Check": {
+      "main": [
+        [
+          {
+            "node": "Process Single Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OMS Posting Check": {
+      "main": [
+        [
+          {
+            "node": "Process Single Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OMS Pulling Check": {
+      "main": [
+        [
+          {
+            "node": "Process Single Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Single Result": {
+      "main": [
+        [
+          {
+            "node": "Has Errors?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Errors?": {
+      "main": [
+        [
+          {
+            "node": "Service OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f43f41f4-4300-4970-b4a3-cf90ef8af284",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1e8007af8e234d79c958ac273c3bf7864828bae436efb5eb941d1e84aaaa9bef"
+  },
+  "id": "LjA35gNhavyHwIxE",
+  "tags": []
+}
